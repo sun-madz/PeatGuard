@@ -251,7 +251,17 @@ textarea.msg {
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.legend i.fire { width: 10px; height: 10px; border-radius: 50%; background: #FFD08A; box-shadow: 0 0 0 2px #FF8A4C; }
+.legend i.fire { width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: #FFF6D6; box-shadow: 0 0 0 1.5px rgba(255,150,80,.9), 0 0 6px 2px rgba(255,106,61,.55); }
+.heat-scale { gap: 8px; }
+.heat-scale b { width: 96px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, rgba(58,20,16,.35), #7A2416 22%, #C2401E 45%, #FF6A3D 65%, #FFA94D 82%, #FFF0B3); }
+.heat-scale em { font-style: normal; font-size: 12px; }
+.leaflet-heatmap-layer { pointer-events: none; mix-blend-mode: screen; }
+.ember i { display: block; width: 4px; height: 4px; margin: 3px; border-radius: 50%; background: #FFF6D6;
+  box-shadow: 0 0 0 1.5px rgba(255,150,80,.9), 0 0 6px 2px rgba(255,106,61,.55); }
+.ember.big i { width: 6px; height: 6px; margin: 2px; }
+.ember.big i { animation: ember 1.8s ease-in-out infinite; }
+@keyframes ember { 50% { box-shadow: 0 0 0 1.5px rgba(255,150,80,.95), 0 0 12px 5px rgba(255,106,61,.7); } }
+@media (prefers-reduced-motion: reduce) { .ember.big i { animation: none; } }
 .selected { background: var(--surface); border-radius: 20px; padding: 16px; text-decoration: none; color: var(--text); display: flex; flex-direction: column; gap: 8px; }
 .selected .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .selected h3 { font-size: 20px; }

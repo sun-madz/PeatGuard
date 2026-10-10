@@ -438,8 +438,8 @@
       '<input id="q" type="search" list="zlist" placeholder="Find an area, town or state" autocomplete="off"></label>' +
       '<datalist id="zlist">' + t.zones.map(function (x) { return '<option value="' + x.id + '">' + esc(area(x)) + '</option>'; }).join('') + '</datalist>' +
       '<div class="map-box" id="map" role="application" aria-label="Map of peatland areas coloured by fire risk"></div>' +
-      '<div class="legend"><span><i style="background:#FF6A3D"></i>High</span><span><i style="background:#F2B046"></i>Elevated</span>' +
-      '<span><i style="background:#5A4E46"></i>Low</span><span><i class="fire"></i>Burning this week</span></div>' +
+      '<div class="legend heat-legend"><span class="heat-scale"><em>Lower risk</em><b></b><em>Higher risk</em></span>' +
+      '<span><i class="fire"></i>Burning this week</span></div>' +
       '<a class="selected" href="#/zone/' + z.id + '"><div class="row"><div><h3>' + esc(z.id) + '</h3><div class="small muted">' + esc(area(z)) + '</div></div>' +
       '<div><div class="num c-' + c + '">' + pct(z.p) + '</div><div class="tiny dim" style="text-align:right">chance of fire</div></div></div>' +
       '<p class="small" style="color:var(--text-2)">' + esc(cap(z.reasons[0] || story(z))) + '</p>' +
@@ -506,16 +506,51 @@
     } else {
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(leafletMap);
     }
-    var bounds = [];
-    S.today.zones.forEach(function (z) {
-      var b = [[z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]], col = MAP_COLORS[z.level], sel = z.id === S.mapSel;
-      bounds.push(b[0], b[1]);
-      var r = L.rectangle(b, { color: sel ? '#FFFFFF' : '#17120F', weight: sel ? 2.5 : 1, fillColor: col[0], fillOpacity: col[1] }).addTo(leafletMap);
+    var zones = S.today.zones, bounds = [];
+    zones.forEach(function (z) { bounds.push([z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]); });
+    leafletMap.fitBounds(bounds, { padding: [8, 8] });
+
+    // Risk heat layer: one soft blob per zone, sized to the zone so neighbours blend.
+    if (L.heatLayer) {
+      var pts = zones.map(function (z) { return [z.lat, z.lon, heatValue(z, zones)]; });
+      var heat = L.heatLayer(pts, { max: 1, maxZoom: 0, minOpacity: 0.05, gradient: HEAT_GRADIENT }).addTo(leafletMap);
+      var fit = function () {
+        var a = leafletMap.latLngToContainerPoint([0, 100]), b = leafletMap.latLngToContainerPoint([0, 100.5]);
+        var cell = Math.abs(b.x - a.x);
+        heat.setOptions({ radius: Math.max(9, cell * 1.05), blur: Math.max(10, cell * 1.1) });
+      };
+      fit(); leafletMap.on('zoomend', fit);
+    }
+
+    // Burning this week: small glowing embers on top of the heat.
+    zones.forEach(function (z) {
+      if (z.fires7 > 0) L.marker([z.lat, z.lon], {
+        icon: L.divIcon({ className: 'ember' + (z.fires7 >= 10 ? ' big' : ''), html: '<i></i>', iconSize: [10, 10] }),
+        interactive: false, keyboard: false
+      }).addTo(leafletMap);
+    });
+
+    // Invisible tap areas (one per zone); the selected zone gets a white outline.
+    zones.forEach(function (z) {
+      var b = [[z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]], sel = z.id === S.mapSel;
+      var r = L.rectangle(b, { stroke: sel, color: '#FFFFFF', weight: 2, dashArray: sel ? null : '3 4', fillColor: '#FFFFFF', fillOpacity: 0 }).addTo(leafletMap);
       r.bindTooltip(z.id + ', near ' + z.place + ': ' + pct(z.p), { direction: 'top' });
       r.on('click', function () { location.hash = '#/map/' + z.id; });
-      if (z.fires7 > 0) L.circleMarker([z.lat, z.lon], { radius: Math.min(7, 3 + Math.sqrt(z.fires7) / 2), color: '#FF8A4C', weight: 2, fillColor: '#FFD08A', fillOpacity: 0.95, interactive: false }).addTo(leafletMap);
+      if (!sel) {
+        r.on('mouseover', function () { r.setStyle({ stroke: true, opacity: 0.5, weight: 1 }); });
+        r.on('mouseout', function () { r.setStyle({ stroke: false }); });
+      }
     });
-    leafletMap.fitBounds(bounds, { padding: [8, 8] });
+  }
+  // Warm "fire" ramp: transparent -> ember red -> orange -> hot yellow-white.
+  var HEAT_GRADIENT = { 0.22: '#5A1E14', 0.38: '#7A2416', 0.52: '#C2401E', 0.68: '#FF6A3D', 0.84: '#FFA94D', 1: '#FFF0B3' };
+  // Heat strength follows the risk level first (so a quiet High zone still glows), then the chance within that level.
+  function heatValue(z, zones) {
+    var band = { High: [0.72, 1], Elevated: [0.45, 0.64], Low: [0, 0.22] }[z.level] || [0, 0.22];
+    var same = zones.filter(function (x) { return x.level === z.level; }).map(function (x) { return x.p; });
+    var lo = Math.min.apply(null, same), hi = Math.max.apply(null, same);
+    var f = hi > lo ? (z.p - lo) / (hi - lo) : 1;
+    return band[0] + (band[1] - band[0]) * f;
   }
   function jumpTo(v) {
     v = (v || '').trim().toLowerCase();
