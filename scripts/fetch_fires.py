@@ -50,7 +50,7 @@ def download(source, start, end):
     d = date.fromisoformat(start)
     end = date.fromisoformat(end)
     while d <= end:
-        days = min(10, (end - d).days + 1)
+        days = min(5, (end - d).days + 1)
         f = RAW / f"{source}_{d.isoformat()}.csv"
         if not f.exists():
             print(f"{source} {d} (+{days}d)")

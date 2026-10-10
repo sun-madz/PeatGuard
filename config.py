@@ -18,6 +18,10 @@ REGIONS = {
     "Central Kalimantan": (-3.5, -1.5, 113.0, 115.0, "ID", 1.5),
 }
 
+# Short unique code per region, used in zone ids (e.g. MY-SW-03).
+CODES = {"Selangor": "S", "Johor": "J", "Pahang": "P", "Sarawak": "SW",
+         "Riau": "R", "South Sumatra-Jambi": "SSJ", "Central Kalimantan": "CK"}
+
 # One bounding box covering every region, used for the fire download:
 # west, south, east, north
 FIRE_BBOX = "100,-4,116,4.5"
@@ -26,6 +30,12 @@ HIST_START = "2015-01-01"
 HIST_END = (date.today() - timedelta(days=10)).isoformat()  # reanalysis lags ~5 days
 TEST_START = "2023-01-01"   # train before this date, test from it
 HORIZON_DAYS = 7            # predict fire within the next 7 days
+MIN_HOTSPOTS_FOR_FIRE = 3   # a zone counts as "on fire" with at least this many hotspots in the week
+
+# Static heat sources (factories, flares, power plants): a ~1 km spot detected on
+# at least this many days, spread over at least this many different years.
+STATIC_MIN_DAYS = 40
+STATIC_MIN_YEARS = 5
 
 # Peat "specific yield": how far the water table drops per mm of water lost.
 # Used to turn the moisture deficit into an estimated water-table depth.
@@ -41,7 +51,7 @@ def build_zones():
         for lat in np.arange(la0 + CELL / 2, la1, CELL):
             for lon in np.arange(lo0 + CELL / 2, lo1, CELL):
                 n += 1
-                code = "".join(w[0] for w in region.replace("-", " ").split()).upper()
+                code = CODES[region]
                 zones.append({
                     "zone_id": f"{country}-{code}-{n:02d}",
                     "region": region,
