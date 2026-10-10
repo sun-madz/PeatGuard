@@ -4,10 +4,13 @@
 PeatGuard predicts which peatland areas are likely to catch fire or spread fire **in the next 7 days**. It explains why, says what teams should do, and shows how clean the air is before they go out.
 
 🔗 **Live app:** (https://peatguard-web.vercel.app/)
-👥 **Team:** Wizards · Taylor's University
+👥 **Team:** Wizards · Taylor's University 
+## Team
+- Yara Matouk
+- Sandrine Madeleine
+
 🏁 **Dormathon 2026 · Track 1: Predictive Model**
 
----
 
 ## The problem
 Peat fires burn underground, are very hard to put out once they start, and send haze across Malaysia almost every dry season. Fire agencies have limited patrol teams. They need to know **where to send them before the fire starts**, not after satellites already see smoke.
@@ -77,11 +80,6 @@ cd web && python -m http.server 8000
 ## Limitations
 - Zones are about 55 × 55 km grid cells, not exact plots.
 - Satellites miss fires under cloud and smoke, so some real fires are not in the labels.
-- Region impact weights are set by hand (disclosed in the app).
-- Ground sensors (water table, soil moisture) would improve accuracy. The app shows how they would fit in.
+- IOT Ground sensors (water table, soil moisture) would improve accuracy. The app shows how they would fit in.
 
-## Team
-- NAME 1
-- NAME 2
-- NAME 3
-- NAME 4
+
