@@ -7,7 +7,7 @@
   var CFG = window.PG_CONFIG || {};
   var S = {
     today: null, metrics: null, replay: null, impact: null, air: null, airState: 'idle',
-    impactShare: 3, impactHa: 5, impactCost: 500,
+    impactShare: 3, impactHa: 5, impactCost: 500, heroOpen: false, airSort: 'worst',
     filter: 'all', mapSel: null, replayDay: null, airSel: 'Kuala Lumpur',
     warn: { zone: null, who: 'community', lang: 'en', text: null },
     lastSent: null, smoulder: false, sensorZone: null
@@ -77,6 +77,8 @@
 
   /* ---------------- icons ---------------- */
   var I = {
+    logo: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" fill="#1F0C05"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
     flame: '<path d="M12 22c4.4 0 7-2.9 7-6.6 0-3.4-2.2-5.6-3.6-7.2-.4 1.7-1.3 2.9-2.6 3.5.3-3.3-1.2-6.4-4-8.7.2 3.3-1.6 5.1-3 6.8C4.6 11.3 5 13.4 5 15.4 5 19.1 7.6 22 12 22z"/>',
     back: '<path d="M15 18l-6-6 6-6"/>',
     chev: '<path d="M9 18l6-6-6-6"/>',
@@ -207,6 +209,10 @@
       '<span class="chev">' + ic('chev', null, 2) + '</span></a>';
   }
 
+  function heroLinks() {
+    return '<div class="links"><button class="more" data-act="hero" aria-expanded="' + S.heroOpen + '" aria-controls="hero-facts">' +
+      (S.heroOpen ? 'Fewer details' : 'More details') + ic('down', null, 2) + '</button>' + how('risk', null, 'How it was calculated', 'on-red') + '</div>';
+  }
   function splitLine(burn, fresh) {
     var a = burn + (burn === 1 ? ' is' : ' are') + ' already burning and could spread.';
     var b = fresh ? ' ' + fresh + (fresh === 1 ? ' has' : ' have') + ' no fire yet, which is where early patrols matter most.' : ' None of the quiet areas are at high risk yet.';
@@ -222,24 +228,24 @@
       hero = '<section class="hero-risk" aria-label="Fire risk today">' +
         '<div class="status"><span class="live"></span>Fire risk today</div>' +
         '<div class="headline"><span class="num">' + s.high + '</span><p>' + (s.high === 1 ? 'area' : 'areas') + ' at high risk of fire this week</p></div>' +
-        '<p class="facts">' + splitLine(hiBurn, hiNew) + (s.smoke ? ' ' + s.smoke + ' risky areas would push smoke towards Malaysia.' : '') +
+        '<p class="facts" id="hero-facts"' + (S.heroOpen ? '' : ' hidden') + '>' + splitLine(hiBurn, hiNew) + (s.smoke ? ' ' + s.smoke + ' risky areas would push smoke towards Malaysia.' : '') +
         (s.rising ? ' ' + s.rising + ' more crossed the alert line today.' : '') + '</p>' +
-        '<div class="row"><a class="btn-light" href="#/patrol">Send teams</a>' + how('risk', null, null, 'on-red') + '</div></section>';
+        '<div class="row"><a class="btn-light" href="#/patrol">Send teams</a>' + heroLinks() + '</div></section>';
     } else if (s.elevated > 0) {
       hero = '<section class="hero-risk watch" aria-label="Fire watch today">' +
         '<div class="status"><span class="live"></span>Fire watch today</div>' +
         '<div class="headline"><span class="num">' + s.elevated + '</span><p>' + (s.elevated === 1 ? 'area' : 'areas') + ' to watch. None at high risk today</p></div>' +
-        '<p class="facts">' + s.burning + ' areas are burning now. ' + (s.rising ? s.rising + ' crossed the alert line today; if they stay above it tomorrow they become high risk. ' : '') + 'Patrol the areas below within three days.</p>' +
-        '<div class="row"><a class="btn-light" href="#/patrol">See areas to watch</a>' + how('risk', null, null, 'on-red') + '</div></section>';
+        '<p class="facts" id="hero-facts"' + (S.heroOpen ? '' : ' hidden') + '>' + s.burning + ' areas are burning now. ' + (s.rising ? s.rising + ' crossed the alert line today; if they stay above it tomorrow they become high risk. ' : '') + 'Patrol the areas below within three days.</p>' +
+        '<div class="row"><a class="btn-light" href="#/patrol">See areas to watch</a>' + heroLinks() + '</div></section>';
     } else {
       hero = '<section class="hero-risk calm" aria-label="All clear today">' +
         '<div class="status"><span class="live"></span>All clear today</div>' +
         '<div class="headline"><span class="num">0</span><p>areas at high risk of fire this week</p></div>' +
-        '<p class="facts">A good week to repair canal blocks and brief communities before the dry season.</p>' +
-        '<div class="row"><a class="btn-light" href="#/patrol">See the ranking</a>' + how('risk', null, null, 'on-red') + '</div></section>';
+        '<p class="facts" id="hero-facts"' + (S.heroOpen ? '' : ' hidden') + '>A good week to repair canal blocks and brief communities before the dry season.</p>' +
+        '<div class="row"><a class="btn-light" href="#/patrol">See the ranking</a>' + heroLinks() + '</div></section>';
     }
     return '<main class="screen has-nav">' +
-      '<header class="masthead"><div class="wordmark"><span class="mark">' + ic('flame', '#1F0C05', 2) + '</span>' +
+      '<header class="masthead"><div class="wordmark"><span class="mark" aria-hidden="true"><svg viewBox="2.6 1.6 18.8 21.4">' + I.logo + '</svg></span>' +
       '<div><b>PeatGuard</b><span>' + esc(updatedLine()) + '</span></div></div>' +
       '<button class="icon-btn" data-act="sheet" data-v="risk" aria-label="How PeatGuard works">' + ic('info') + '</button></header>' +
       hero +
@@ -449,7 +455,7 @@
       q.addEventListener('change', function () { jumpTo(q.value); });
       q.addEventListener('keydown', function (e) { if (e.key === 'Enter') jumpTo(q.value); });
     }
-    if (CFG.googleMapsKey && !initMap.googleFailed) loadGoogle(function (ok) { if (ok) drawGoogle(el); else drawLeaflet(el); });
+    if (CFG.googleMapsKey && !CFG.mapboxToken && !initMap.googleFailed) loadGoogle(function (ok) { if (ok) drawGoogle(el); else drawLeaflet(el); });
     else drawLeaflet(el);
   }
   function loadGoogle(cb) {
@@ -492,7 +498,14 @@
     if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">The map could not load. Check your connection.</div>'; return; }
     if (leafletMap) { leafletMap.remove(); leafletMap = null; }
     leafletMap = L.map(el, { zoomControl: true, scrollWheelZoom: false });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(leafletMap);
+    if (CFG.mapboxToken) {
+      L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/' + (CFG.mapboxStyle || 'dark-v11') + '/tiles/512/{z}/{x}/{y}@2x?access_token=' + encodeURIComponent(CFG.mapboxToken), {
+        tileSize: 512, zoomOffset: -1, maxZoom: 12,
+        attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+      }).addTo(leafletMap);
+    } else {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(leafletMap);
+    }
     var bounds = [];
     S.today.zones.forEach(function (z) {
       var b = [[z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]], col = MAP_COLORS[z.level], sel = z.id === S.mapSel;
@@ -528,7 +541,7 @@
       return '<div><span>' + (dayNames[k] || fmtDate(d[0], { weekday: 'long' })) + '</span><b style="color:' + dc.text + '">' + d[1] + '</b><span>' + esc(dc.i === 2 ? 'Sensitive groups' : dc.name) + '</span></div>';
     }).join('');
     function opt(p) { return '<option value="' + esc(p.name) + '"' + (p.name === a.name ? ' selected' : '') + '>' + esc(p.name === p.area ? p.name : p.name + ', ' + p.area) + '</option>'; }
-    var ranked = cities.slice().sort(function (x, y) { return y.aqi - x.aqi; });
+    var ranked = cities.slice().sort(function (x, y) { return S.airSort === 'best' ? x.aqi - y.aqi : y.aqi - x.aqi; });
     return '<main class="screen has-nav">' + head +
       '<div class="picker"><label for="airsel">Place</label><select id="airsel">' +
       '<optgroup label="Towns and cities">' + cities.map(opt).join('') + '</optgroup>' +
@@ -540,7 +553,11 @@
       '<p class="advice">' + esc(c.advice) + '</p>' +
       (days ? '<div class="days">' + days + '</div>' : '') +
       '<div>' + how('air', null, 'How this is measured') + '</div></section>' +
-      '<section class="stack"><div class="group-head"><h2>Towns and cities</h2><span class="tiny dim">worst first</span></div><div class="group">' +
+      '<section class="stack"><div class="group-head"><h2>Towns and cities</h2></div>' +
+      '<div class="seg small" role="group" aria-label="Sort">' +
+      '<button aria-pressed="' + (S.airSort === 'worst') + '" data-act="airsort" data-v="worst">Worst air first</button>' +
+      '<button aria-pressed="' + (S.airSort === 'best') + '" data-act="airsort" data-v="best">Cleanest air first</button></div>' +
+      '<div class="group">' +
       ranked.map(function (p) {
         var pc = aqiCat(p.aqi);
         return '<a class="item plain" href="#/air/' + encodeURIComponent(p.name) + '"><div><div class="nm"><span class="dot" style="background:' + pc.color + '"></span>' + esc(p.name) + '</div>' +
@@ -883,6 +900,8 @@
     var act = el.getAttribute('data-act'), v = el.getAttribute('data-v');
     if (act === 'sheet') { openSheet(v, el.getAttribute('data-arg')); return; }
     if (act === 'filter') { S.filter = v; route(true); return; }
+    if (act === 'hero') { S.heroOpen = !S.heroOpen; route(true); return; }
+    if (act === 'airsort') { S.airSort = v; route(true); return; }
     if (act === 'assign') {
       if (assigned[v]) delete assigned[v]; else assigned[v] = true;
       save('assigned', assigned); route(true); toast(assigned[v] ? 'Patrol assigned' : 'Patrol unassigned'); return;
