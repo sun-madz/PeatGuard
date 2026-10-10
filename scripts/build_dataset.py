@@ -5,7 +5,7 @@ Output:
   data/dataset.csv.gz      one row per zone per day: features + label
   models/zone_state.csv    each zone's latest dryness, used to start the live forecast
 """
-import sys
+import json, sys
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +42,8 @@ def load_hotspots():
     h = h[~key.isin(static)]
     print(f"Hotspots: {n0:,} downloaded, {n1:,} after confidence/type filters, "
           f"{len(h):,} after removing {len(static):,} static heat sources")
+    # The app uses this list to filter live hotspots the same way.
+    pd.Series(sorted(static), name="key").to_csv("models/static_sources.csv", index=False)
     return h
 
 
@@ -54,13 +56,25 @@ def main():
     fire_end = hot["date"].max()
     print("Fire data runs to", fire_end.date())
 
-    rows, states = [], []
+    # Compact copies for the app (the full data/ folder is not on GitHub):
+    # 1) daily hotspot counts per zone (non-zero days only)
+    long = []
+    for k, tab in counts.items():
+        t = tab.stack().rename(k)
+        long.append(t[t > 0])
+    zc = pd.concat(long, axis=1).fillna(0).rename_axis(["date", "zone_id"]).reset_index()
+    zc["date"] = pd.to_datetime(zc["date"]).dt.strftime("%Y-%m-%d")
+    zc.to_csv("models/zone_counts.csv.gz", index=False)
+
+    rows, states, recent = [], [], []
     for z in zones:
         f = WEATHER / f"{z['zone_id']}.csv"
         if not f.exists():
             print("  missing weather for", z["zone_id"], "- skipped")
             continue
-        w = weather_features(pd.read_csv(f))
+        raw = pd.read_csv(f)
+        recent.append(raw.tail(400))   # 2) last 400 days of raw weather per zone
+        w = weather_features(raw)
         w = add_fire_features(w, z["zone_id"], counts, MIN_HOTSPOTS_FOR_FIRE)
 
         # Label: at least MIN_HOTSPOTS_FOR_FIRE hotspots inside the zone in the NEXT 7 days (not including today).
@@ -97,6 +111,13 @@ def main():
     df = df[keep].dropna(subset=["deficit_change_7"])
     df.to_csv("data/dataset.csv.gz", index=False)
     pd.DataFrame(states).to_csv("models/zone_state.csv", index=False)
+    pd.concat(recent).to_csv("models/recent_weather.csv.gz", index=False)
+    info = {"fire_end": str(fire_end.date()),
+            "weather_end": str(pd.concat(recent)["date"].max()),
+            "built": str(pd.Timestamp.today().date())}
+    Path("models/data_info.json").write_text(json.dumps(info, indent=2))
+    print("Saved app files: models/zone_counts.csv.gz, models/recent_weather.csv.gz, "
+          "models/static_sources.csv, models/data_info.json")
 
     print(f"\nDataset: {len(df):,} rows, {df['zone_id'].nunique()} zones, "
           f"{df['date'].min().date()} to {df['date'].max().date()}")

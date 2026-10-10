@@ -3,6 +3,6 @@ numpy
 requests
 lightgbm
 scikit-learn
-shap
 streamlit
 pydeck
+altair
