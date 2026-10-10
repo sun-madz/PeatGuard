@@ -303,6 +303,9 @@ def run(a, firms_key=None, live=True):
         if firms_key:
             try:
                 h = fetch_live_hotspots(firms_key)
+                pts = h[["latitude", "longitude", "date"] + (["frp"] if "frp" in h else [])].copy()
+                pts["date"] = pts["date"].dt.strftime("%Y-%m-%d")
+                status["points"] = pts.to_dict("records")   # raw live hotspots for the map
                 f_end = pd.to_datetime(info["fire_end"])
                 h = h[h["date"] > f_end]
                 if len(h):
