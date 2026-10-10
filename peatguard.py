@@ -241,16 +241,55 @@ def explain(r, top=3):
     return cat, reasons
 
 
-def action(level, cat):
-    if level == "High" and cat.startswith("Active"):
-        return ("Send a fire crew today. Check the edges of the burn for spread into dry peat, "
-                "and warn nearby communities about smoke.")
-    if level == "High":
-        return ("Patrol this zone today. Check canal blocks and water levels, enforce the "
-                "open-burning ban, and position water pumps nearby.")
-    if level == "Elevated":
-        return "Schedule a patrol within 3 days and keep watching the daily risk."
-    return "Routine monitoring."
+# What to do, by the type of risk and how urgent it is. Plain, concrete steps a patrol lead can act on.
+ACTIONS = {
+    "spread": {
+        "High": "Send a fire crew to the burn edge today. Check which way the fire is moving and stop it "
+                "reaching dry, drained peat. Use deep-water injection where it is smouldering.",
+        "Elevated": "Check the burn edges within 3 days for smouldering, and keep a pump and crew on standby.",
+    },
+    "drought": {
+        "High": "Patrol today. Check canal blocks and water levels, close any open blocks to keep water in "
+                "the peat, enforce the open-burning ban, and position water pumps nearby.",
+        "Elevated": "Patrol within 3 days. Check canal blocks and water levels before the peat dries further.",
+    },
+    "repeat": {
+        "High": "Inspect the old burn scars today for hidden smouldering, and enforce the open-burning ban "
+                "with nearby farms and estates.",
+        "Elevated": "Walk the old burn scars within 3 days and remind nearby farms of the open-burning ban.",
+    },
+    "climate": {
+        "High": "Patrol today and step up patrols here for the next 2 weeks while the dry spell lasts. "
+                "Pre-position pumps and check water sources.",
+        "Elevated": "Increase patrols here over the next 2 weeks and check that pumps and water sources are ready.",
+    },
+    "nearby": {
+        "High": "Fire nearby is likely to spread here. Patrol today, clear firebreaks on the side facing the fire, "
+                "and keep a crew ready to move.",
+        "Elevated": "Watch the nearby fire daily and patrol the side of this area that faces it within 3 days.",
+    },
+    "season": {
+        "High": "Patrol today. Peak fire season here: check canal blocks, water levels and pumps.",
+        "Elevated": "Patrol within 3 days. Peak fire season here, so keep pumps and crews ready.",
+    },
+}
+CAT_KEY = {
+    "Active fire: spread risk": "spread", "New fire risk: drought": "drought",
+    "New fire risk: repeat-burn area": "repeat", "New fire risk: El Niño / IOD dry spell": "climate",
+    "New fire risk: fire spreading from nearby": "nearby", "New fire risk: fire season": "season",
+    "New fire risk": "drought",
+}
+
+
+def action(level, cat, smoke=False):
+    if level == "Low" and CAT_KEY.get(cat) == "spread":
+        return "A small fire was seen here this week but is unlikely to grow. Check it on the next routine patrol."
+    if level == "Low":
+        return "No action needed now. Keep routine checks of canal blocks and water levels."
+    text = ACTIONS[CAT_KEY.get(cat, "drought")][level]
+    if smoke and level == "High":
+        text += " Smoke would blow towards Malaysia, so alert district health offices downwind."
+    return text
 
 
 def toward_malaysia(r):
@@ -281,8 +320,9 @@ def decide(df):
     cats, reasons, acts, haze = [], [], [], []
     for _, r in df.iterrows():
         cat, rs = explain(r)
-        cats.append(cat); reasons.append(rs); acts.append(action(r["level"], cat))
-        haze.append(toward_malaysia(r))
+        smoke = toward_malaysia(r)
+        cats.append(cat); reasons.append(rs); acts.append(action(r["level"], cat, smoke))
+        haze.append(smoke)
     df["category"], df["reasons"], df["action"], df["smoke_to_MY"] = cats, reasons, acts, haze
     # Priority = chance of fire x people exposed nearby x smoke blowing toward Malaysia.
     df["priority"] = df["p"] * df["impact"] * np.where(df["smoke_to_MY"], 1.5, 1.0)

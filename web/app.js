@@ -7,7 +7,7 @@
   var CFG = window.PG_CONFIG || {};
   var S = {
     today: null, metrics: null, replay: null, impact: null, air: null, airState: 'idle',
-    impactShare: 3, impactHa: 5,
+    impactShare: 3, impactHa: 5, impactCost: 500,
     filter: 'all', mapSel: null, replayDay: null, airSel: 'Kuala Lumpur',
     warn: { zone: null, who: 'community', lang: 'en', text: null },
     lastSent: null, smoulder: false, sensorZone: null
@@ -555,7 +555,8 @@
       (f ? '<a class="panel" href="#/proof" style="text-decoration:none;color:inherit;display:block"><div class="big-stat"><span class="num">+' + lift(f.model, f.rule) + '%</span><b>more fires caught</b></div>' +
         '<p class="stat-note">With the same ' + M.patrols + ' patrols a day, tested on ' + M.testStart.slice(0, 4) + ' to 2026, years the model never saw. See the full results.</p></a>' : '') +
       (S.impact ? '<a class="panel" href="#/impact" style="text-decoration:none;color:inherit;display:block"><div class="big-stat"><span class="num teal">' + S.impact.ruleNeeded + '</span><b>patrols a day</b></div>' +
-        '<p class="stat-note">is what today\'s rule of thumb would need to match PeatGuard with ' + S.impact.patrols + '.</p></a>' : '') +
+        '<p class="stat-note">is what today\'s rule of thumb would need to match PeatGuard with ' + S.impact.patrols + '. That is about ' +
+        S.impact.extraPatrolDaysPerYear.toLocaleString('en-GB') + ' extra patrol days, or ' + rm(S.impact.extraPatrolDaysPerYear * S.impactCost) + ' a year at RM ' + S.impactCost + ' per team-day.</p></a>' : '') +
       '<div class="group">' +
       ['Does it work?|#/proof|Results against today\'s rule of thumb and random patrols',
         'Replay a past day|#/replay|See what it would have flagged before real fires',
@@ -613,6 +614,9 @@
     return { stopped: stopped, ha: ha, lo: lo, hi: hi, txt: {
       stopped: (Math.round(stopped * 10) / 10).toLocaleString('en-GB'), ha: k(ha), co2: k(lo) + ' to ' + k(hi), cars: k(lo / 4.6) + ' to ' + k(hi / 4.6) } };
   }
+  function rm(v) {
+    return v >= 1e6 ? 'RM ' + (v / 1e6).toFixed(1) + ' million' : 'RM ' + Math.round(v).toLocaleString('en-GB');
+  }
   function vImpact() {
     var I = S.impact;
     var head = topbar(backBtn('#/evidence'), 'What it could save', 'Measured first, then estimated');
@@ -627,6 +631,12 @@
       '<section class="panel"><div class="big-stat"><span class="num">+' + I.usefulVisitsPerYear.extra.toLocaleString('en-GB') + '</span><b>useful visits a year</b></div>' +
       '<p class="stat-note">A useful visit is a patrol sent to an area that went on to burn that week. With ' + I.patrols + ' patrols a day: ' +
       I.usefulVisitsPerYear.model.toLocaleString('en-GB') + ' a year with PeatGuard, ' + I.usefulVisitsPerYear.rule.toLocaleString('en-GB') + ' with the rule.</p></section>' +
+      '<section class="stack"><h2>What the saved patrol days are worth</h2>' +
+      '<div class="panel stack">' +
+      '<label class="field"><span>Cost of one team for one day: <b id="v-cost">RM ' + S.impactCost.toLocaleString('en-GB') + '</b></span><input id="r-cost" type="range" min="100" max="3000" step="50" value="' + S.impactCost + '"></label></div>' +
+      '<div class="kv"><div><span>Extra patrol days the rule would need a year</span><b>' + I.extraPatrolDaysPerYear.toLocaleString('en-GB') + '</b></div>' +
+      '<div><span>Their cost a year</span><b id="o-cost">' + rm(I.extraPatrolDaysPerYear * S.impactCost) + '</b></div></div>' +
+      '<p class="small muted">The patrol days are measured. The daily cost of a team (people, fuel, pumps) is an assumption: set it to your agency\'s real figure.</p></section>' +
       '<section class="stack"><h2>If some of those visits stop a fire early</h2>' +
       '<div class="panel stack">' +
       '<label class="field"><span>Extra visits that stop a fire while it is small: <b id="v-share">' + S.impactShare + '%</b></span><input id="r-share" type="range" min="1" max="30" step="1" value="' + S.impactShare + '"></label>' +
@@ -635,12 +645,18 @@
       '<div><span>Peat forest saved a year</span><b id="o-ha">' + N.txt.ha + ' ha</b></div>' +
       '<div><span>CO₂ kept out of the air</span><b id="o-co2">' + N.txt.co2 + ' t</b></div>' +
       '<div><span>Same as taking cars off the road</span><b id="o-cars">' + N.txt.cars + '</b></div></div></section>' +
-      '<div class="info-note small muted">Where the numbers come from: ' + esc(I.co2Source) + ' A typical car emits about 4.6 tonnes of CO₂ a year (US EPA). The two sliders are our assumptions, not measurements: start low, and only claim what a field pilot confirms.</div>' +
+      '<div class="info-note small muted">For scale, the 2015 haze cost Indonesia an estimated US$16 billion (Wan Nawang et al., 2026, Fire Ecology). Where the numbers come from: ' + esc(I.co2Source) + ' A typical car emits about 4.6 tonnes of CO₂ a year (US EPA). The two sliders are our assumptions, not measurements: start low, and only claim what a field pilot confirms.</div>' +
       '</main>' + tabs('evidence');
   }
   function bindImpact() {
-    var rs = document.getElementById('r-share'), rh = document.getElementById('r-ha');
+    var rs = document.getElementById('r-share'), rh = document.getElementById('r-ha'), rc = document.getElementById('r-cost');
     if (!rs || !rh) return;
+    if (rc) rc.addEventListener('input', function () {
+      S.impactCost = Number(rc.value);
+      document.getElementById('v-cost').textContent = 'RM ' + S.impactCost.toLocaleString('en-GB');
+      document.getElementById('o-cost').textContent = rm(S.impactCache * S.impactCost);
+    });
+    S.impactCache = S.impact.extraPatrolDaysPerYear;
     function upd() {
       S.impactShare = Number(rs.value); S.impactHa = Number(rh.value);
       var N = impactNumbers();
