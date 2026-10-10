@@ -4,8 +4,8 @@
 PeatGuard predicts which peatland areas are likely to catch fire or spread fire **in the next 7 days**. It explains why, says what teams should do, and shows how clean the air is before they go out.
 
 🔗 **Live app:** (https://peatguard-web.vercel.app/)
-👥 **Team:** Wizards · Taylor's University 
-## Team
+
+## Team - Wizards - Taylor's University 
 - Yara Matouk
 - Sandrine Madeleine
 
