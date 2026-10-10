@@ -54,7 +54,7 @@ Peat fires burn underground, are very hard to put out once they start, and send 
 | If you want to… | Go to |
 |---|---|
 | **Use the app** | Live link at the top of this README (works on any phone; add it to your home screen to install) |
-| **See the pitch** | `Peat Guard Presentation.pptx` |
+| **See the pitch** | `Live link at the top of this README or Peat Guard Presentation.pptx` |
 | **Understand how the model works** | `peatguard.py` → `features.py` → `scripts/train.py` (read in that order) |
 | **Check our results** | `models/metrics.json` (also shown in the app's **Evidence** tab) |
 | **Reproduce everything** | "Run it yourself" section below |
