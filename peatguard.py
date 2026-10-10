@@ -261,6 +261,20 @@ def toward_malaysia(r):
     return 135 <= d <= 270   # southerly/south-westerly wind pushes smoke north to Malaysia
 
 
+def confirm_two_days(now, prev):
+    """Cut false alarms: "High" only when an area is above the alert line today AND yesterday.
+
+    This is the same 2-day rule the published precision was measured with (train.py).
+    An area above the line for the first time today is shown as "Elevated" and marked rising.
+    """
+    now = now.copy()
+    above = now["p"] >= now["thr"]
+    prev_above = now["zone_id"].map(dict(zip(prev["zone_id"], prev["p"] >= prev["thr"]))).fillna(False).astype(bool)
+    now["rising"] = above & ~prev_above
+    now["level"] = np.select([above & prev_above, now["p"] >= now["thr"] / 2], ["High", "Elevated"], "Low")
+    return now
+
+
 def decide(df):
     """Add category, reasons, action and priority for each zone row."""
     df = df.copy()
@@ -323,7 +337,9 @@ def run(a, firms_key=None, live=True):
     feats = build_features(a, weather, zc)
     feats["date"] = pd.to_datetime(feats["date"])
     pred_day = pd.Timestamp(min(today, feats["date"].max().date()))
-    now = feats[feats["date"] == pred_day]
-    scored = decide(score(a, now))
+    now = score(a, feats[feats["date"] == pred_day])
+    prev = score(a, feats[feats["date"] == pred_day - pd.Timedelta(days=1)])
+    now = confirm_two_days(now, prev)
+    scored = decide(now)
     status["as_of"] = str(pred_day.date())
     return scored, feats, status

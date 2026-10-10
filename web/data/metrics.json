@@ -9,8 +9,12 @@
   "newRule": 0.3166869671132765,
   "precisionModel": 0.5788321167883211,
   "precisionRule": 0.44814575247951705,
+  "rocModel": 0.9008324053755966,
+  "rocRule": 0.7431399664385955,
   "newFires": 1311,
-  "warnedModel": 0.559115179252479
+  "warnedModel": 0.559115179252479,
+  "rows": 97199,
+  "fireRate": 0.1365549028282184
  },
  "unseenCountry": {
   "model": 0.7548015364916774,
@@ -20,14 +24,22 @@
   "newRule": 0.6399655469422911,
   "precisionModel": 0.38026666666666664,
   "precisionRule": 0.22154055896387184,
+  "rocModel": 0.813047335885064,
+  "rocRule": 0.6348635124217078,
   "newFires": 486,
-  "warnedModel": 0.9218106995884774
+  "warnedModel": 0.9218106995884774,
+  "rows": 31487,
+  "fireRate": 0.09921554927430368
  },
  "drivers": [
-  "Fires in the zone this month",
-  "Days since the zone last burned",
-  "How often it burns in this month",
+  "Fires in this zone this month",
+  "Days since this zone last burned",
+  "Past years it burned in this month",
   "Fires in the past year",
   "Fires in the past 3 months"
- ]
+ ],
+ "staticSources": 469,
+ "zones": 71,
+ "trainStart": "2015-01-01",
+ "featureCount": 36
 }
