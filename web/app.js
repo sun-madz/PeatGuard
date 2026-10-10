@@ -438,8 +438,7 @@
       '<input id="q" type="search" list="zlist" placeholder="Find an area, town or state" autocomplete="off"></label>' +
       '<datalist id="zlist">' + t.zones.map(function (x) { return '<option value="' + x.id + '">' + esc(area(x)) + '</option>'; }).join('') + '</datalist>' +
       '<div class="map-box" id="map" role="application" aria-label="Map of peatland areas coloured by fire risk"></div>' +
-      '<div class="legend heat-legend"><span class="heat-scale"><em>Lower risk</em><b></b><em>Higher risk</em></span>' +
-      '<span><i class="fire"></i>Burning this week</span></div>' +
+      '<div class="legend heat-legend"><span class="heat-scale"><em>Low risk</em><b></b><em class="burn">Burning</em></span></div>' +
       '<a class="selected" href="#/zone/' + z.id + '"><div class="row"><div><h3>' + esc(z.id) + '</h3><div class="small muted">' + esc(area(z)) + '</div></div>' +
       '<div><div class="num c-' + c + '">' + pct(z.p) + '</div><div class="tiny dim" style="text-align:right">chance of fire</div></div></div>' +
       '<p class="small" style="color:var(--text-2)">' + esc(cap(z.reasons[0] || story(z))) + '</p>' +
@@ -506,35 +505,54 @@
     } else {
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 10, attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(leafletMap);
     }
+    // Land outline, used only to keep the fire colours off the sea.
+    var heat = null, landRings = null;
+    loadLand(function (land) {
+      if (!land || !leafletMap) return;
+      landRings = [];
+      land.features.forEach(function (f) {
+        var g = f.geometry, polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+        polys.forEach(function (poly) { poly.forEach(function (ring) { landRings.push(ring); }); });
+      });
+      if (heat) heat.redraw();
+    });
+
     var zones = S.today.zones, bounds = [];
     zones.forEach(function (z) { bounds.push([z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]); });
     leafletMap.fitBounds(bounds, { padding: [8, 8] });
 
-    // Risk heat layer: one soft blob per zone, sized to the zone so neighbours blend.
+    // Fire-risk density: one soft shape per zone; neighbours merge into smooth bands.
     if (L.heatLayer) {
       var pts = zones.map(function (z) { return [z.lat, z.lon, heatValue(z, zones)]; });
-      var heat = L.heatLayer(pts, { max: 1, maxZoom: 0, minOpacity: 0.05, gradient: HEAT_GRADIENT }).addTo(leafletMap);
+      heat = L.heatLayer(pts, { max: 1, maxZoom: 0, minOpacity: 0, gradient: heatGradient() }).addTo(leafletMap);
+      // Keep the fire colours on land only: after each redraw, cut the canvas to the land shape.
+      var drawHeat = heat._redraw;
+      heat._redraw = function () {
+        drawHeat.call(this);
+        if (!landRings || !this._canvas) return;
+        var ctx = this._canvas.getContext('2d'), m = this._map;
+        ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in'; ctx.beginPath();
+        landRings.forEach(function (ring) {
+          ring.forEach(function (c, i) { var pt = m.latLngToContainerPoint([c[1], c[0]]); if (i) ctx.lineTo(pt.x, pt.y); else ctx.moveTo(pt.x, pt.y); });
+          ctx.closePath();
+        });
+        ctx.fillStyle = '#000'; ctx.fill('evenodd'); ctx.restore();
+      };
       var fit = function () {
         var a = leafletMap.latLngToContainerPoint([0, 100]), b = leafletMap.latLngToContainerPoint([0, 100.5]);
         var cell = Math.abs(b.x - a.x);
-        heat.setOptions({ radius: Math.max(9, cell * 1.05), blur: Math.max(10, cell * 1.1) });
+        heat.setOptions({ radius: Math.max(6, cell * 0.5), blur: Math.max(12, cell * 1.15) });
       };
+      // Soft edges lower the peak, so stretch the colour scale back to the full 0-1 range.
+      heat._heat && (heat._heat._boost = 2.05);
       fit(); leafletMap.on('zoomend', fit);
     }
 
-    // Burning this week: small glowing embers on top of the heat.
-    zones.forEach(function (z) {
-      if (z.fires7 > 0) L.marker([z.lat, z.lon], {
-        icon: L.divIcon({ className: 'ember' + (z.fires7 >= 10 ? ' big' : ''), html: '<i></i>', iconSize: [10, 10] }),
-        interactive: false, keyboard: false
-      }).addTo(leafletMap);
-    });
-
-    // Invisible tap areas (one per zone); the selected zone gets a white outline.
+    // Invisible tap areas (one per zone); the selected zone gets a dark outline.
     zones.forEach(function (z) {
       var b = [[z.lat - 0.25, z.lon - 0.25], [z.lat + 0.25, z.lon + 0.25]], sel = z.id === S.mapSel;
-      var r = L.rectangle(b, { stroke: sel, color: '#FFFFFF', weight: 2, dashArray: sel ? null : '3 4', fillColor: '#FFFFFF', fillOpacity: 0 }).addTo(leafletMap);
-      r.bindTooltip(z.id + ', near ' + z.place + ': ' + pct(z.p), { direction: 'top' });
+      var r = L.rectangle(b, { stroke: sel, color: '#FFFFFF', weight: 2, fillColor: '#FFFFFF', fillOpacity: 0 }).addTo(leafletMap);
+      r.bindTooltip(z.id + ', near ' + z.place + ': ' + pct(z.p) + (z.fires7 ? ', burning' : ''), { direction: 'top' });
       r.on('click', function () { location.hash = '#/map/' + z.id; });
       if (!sel) {
         r.on('mouseover', function () { r.setStyle({ stroke: true, opacity: 0.5, weight: 1 }); });
@@ -542,11 +560,17 @@
       }
     });
   }
-  // Warm "fire" ramp: transparent -> ember red -> orange -> hot yellow-white.
-  var HEAT_GRADIENT = { 0.22: '#5A1E14', 0.38: '#7A2416', 0.52: '#C2401E', 0.68: '#FF6A3D', 0.84: '#FFA94D', 1: '#FFF0B3' };
-  // Heat strength follows the risk level first (so a quiet High zone still glows), then the chance within that level.
+  function loadLand(cb) {
+    if (loadLand.data) return cb(loadLand.data);
+    fetch('land.json').then(function (r) { return r.json(); }).then(function (j) { loadLand.data = j; cb(j); }).catch(function () { cb(null); });
+  }
+  // Smooth fire ramp (pale yellow -> orange -> red -> deep red), fading in from transparent.
+  var HEAT_STOPS = [[0, 'rgba(255,214,120,0)'], [0.05, 'rgba(255,214,120,0)'], [0.14, 'rgba(255,222,140,0.55)'], [0.28, 'rgba(253,203,98,0.82)'],
+    [0.44, 'rgba(246,160,59,0.9)'], [0.62, 'rgba(236,106,44,0.94)'], [0.8, 'rgba(215,48,31,0.96)'], [1, 'rgba(143,16,21,0.98)']];
+  function heatGradient() { var g = {}; HEAT_STOPS.forEach(function (x) { g[x[0]] = x[1]; }); return g; }
+  // Strength follows the risk level first (a quiet High zone still shows strongly); burning zones get the darkest core.
   function heatValue(z, zones) {
-    var band = { High: [0.72, 1], Elevated: [0.45, 0.64], Low: [0, 0.22] }[z.level] || [0, 0.22];
+    var band = z.level === 'High' ? (z.fires7 > 0 ? [0.84, 1] : [0.68, 0.8]) : z.level === 'Elevated' ? [0.48, 0.6] : [0.14, 0.24];
     var same = zones.filter(function (x) { return x.level === z.level; }).map(function (x) { return x.p; });
     var lo = Math.min.apply(null, same), hi = Math.max.apply(null, same);
     var f = hi > lo ? (z.p - lo) / (hi - lo) : 1;

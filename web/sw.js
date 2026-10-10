@@ -1,8 +1,8 @@
 /* PeatGuard background script: makes the app installable and lets it open
    with the last downloaded data when there is no signal.
    Change VERSION to force every phone to drop its old copy. */
-var VERSION = 'pg-v1';
-var SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'leaflet-heat.js', 'manifest.json',
+var VERSION = 'pg-v3';
+var SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'leaflet-heat.js', 'land.json', 'manifest.json',
   'icons/icon-192.png', 'icons/apple-touch-icon.png',
   'data/today.json', 'data/metrics.json', 'data/air.json', 'data/replay.json', 'data/impact.json',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',

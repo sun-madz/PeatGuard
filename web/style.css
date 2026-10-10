@@ -253,15 +253,10 @@ textarea.msg {
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .legend i.fire { width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: #FFF6D6; box-shadow: 0 0 0 1.5px rgba(255,150,80,.9), 0 0 6px 2px rgba(255,106,61,.55); }
 .heat-scale { gap: 8px; }
-.heat-scale b { width: 96px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, rgba(58,20,16,.35), #7A2416 22%, #C2401E 45%, #FF6A3D 65%, #FFA94D 82%, #FFF0B3); }
+.heat-scale b { width: 150px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, rgba(255,233,163,.35), #FDCB62 18%, #F6A03B 40%, #EC6A2C 60%, #D7301F 80%, #8F1015); }
 .heat-scale em { font-style: normal; font-size: 12px; }
-.leaflet-heatmap-layer { pointer-events: none; mix-blend-mode: screen; }
-.ember i { display: block; width: 4px; height: 4px; margin: 3px; border-radius: 50%; background: #FFF6D6;
-  box-shadow: 0 0 0 1.5px rgba(255,150,80,.9), 0 0 6px 2px rgba(255,106,61,.55); }
-.ember.big i { width: 6px; height: 6px; margin: 2px; }
-.ember.big i { animation: ember 1.8s ease-in-out infinite; }
-@keyframes ember { 50% { box-shadow: 0 0 0 1.5px rgba(255,150,80,.95), 0 0 12px 5px rgba(255,106,61,.7); } }
-@media (prefers-reduced-motion: reduce) { .ember.big i { animation: none; } }
+.heat-scale em.burn { color: #E0574A; }
+.map-box .leaflet-tooltip { font-family: inherit; }
 .selected { background: var(--surface); border-radius: 20px; padding: 16px; text-decoration: none; color: var(--text); display: flex; flex-direction: column; gap: 8px; }
 .selected .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .selected h3 { font-size: 20px; }
@@ -369,3 +364,4 @@ input[type="range"] { width: 100%; accent-color: var(--ember); height: 32px; }
 @media (prefers-reduced-motion: reduce) { .more svg { transition: none; } }
 .hero-risk .links { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .seg.small button { min-height: 34px; font-size: 13px; }
+.leaflet-heatmap-layer { pointer-events: none; }
