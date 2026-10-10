@@ -170,7 +170,11 @@ def zone_month_fire_rate(zin_daily, min_hotspots):
 def add_fire_features(w, zone_id, counts, min_hotspots=3):
     """Add past-hotspot features for one zone (using data up to and including each day)."""
     idx = pd.DatetimeIndex(w["date"])
-    full = pd.date_range(idx.min() - pd.Timedelta(days=365), idx.max())
+    # Use the zone's whole fire history (as in training), at least one year back.
+    starts = [idx.min() - pd.Timedelta(days=365)]
+    if isinstance(counts.get("inside"), pd.DataFrame) and len(counts["inside"]):
+        starts.append(pd.Timestamp(counts["inside"].index.min()))
+    full = pd.date_range(min(starts), idx.max())
     zin = _zone_series(counts["inside"], zone_id, full)
     znr = _zone_series(counts["near"], zone_id, full)
     fin = _zone_series(counts["frp_in"], zone_id, full)
