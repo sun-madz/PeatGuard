@@ -937,7 +937,7 @@
     if (page === 'map') initMap();
     if (page === 'impact') bindImpact();
     var el;
-    if ((el = document.getElementById('rday'))) el.addEventListener('change', function () { if (el.value) { S.replayDay = el.value; route(true); } });
+    if ((el = document.getElementById('rday'))) { var rd = el; rd.addEventListener('change', function () { if (rd.value) { S.replayDay = rd.value; route(true); } }); }
     if ((el = document.getElementById('szone'))) { var sz = el; sz.addEventListener('change', function () { S.sensorZone = sz.value; S.smoulder = false; route(true); }); }
     if ((el = document.getElementById('airsel'))) { var as = el; as.addEventListener('change', function () { location.hash = '#/air/' + encodeURIComponent(as.value); }); }
     if ((el = document.getElementById('msg'))) { var ta = el; ta.addEventListener('input', function () { S.warn.text = ta.value; }); }
