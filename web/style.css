@@ -336,9 +336,9 @@ textarea.msg {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 1000;
   width: min(440px, 100vw); padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
   background: rgba(23,18,15,.94); backdrop-filter: blur(10px); border-top: 1px solid var(--line-soft);
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); padding-left: 6px; padding-right: 6px;
 }
-.tabs a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; text-decoration: none; color: var(--dim); font-size: 12px; font-weight: 500; border-radius: 12px; }
+.tabs a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; text-decoration: none; color: var(--dim); font-size: 11.5px; font-weight: 500; border-radius: 12px; }
 .tabs a svg { width: 22px; height: 22px; }
 .tabs a[aria-current="page"] { color: var(--ember-text); font-weight: 600; }
 
@@ -365,3 +365,29 @@ input[type="range"] { width: 100%; accent-color: var(--ember); height: 32px; }
 .hero-risk .links { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .seg.small button { min-height: 34px; font-size: 13px; }
 .leaflet-heatmap-layer { pointer-events: none; }
+
+/* Field: Kuala Langat pilot */
+.watchlink { display: flex; flex-direction: column; gap: 2px; background: var(--ember-wash); box-shadow: inset 0 0 0 1px var(--ember-line); border-radius: 16px; padding: 12px 14px; text-decoration: none; color: var(--text); font-size: 13px; }
+.watchlink b { color: var(--ember-text); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.watchlink .dim { color: var(--dim); font-size: 12px; }
+.fstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fstats div { background: var(--surface); border-radius: 14px; padding: 10px 6px; text-align: center; }
+.fstats b { display: block; font-size: 22px; font-weight: 600; line-height: 1.1; }
+.fstats span { font-size: 11px; color: var(--muted); }
+svg.siteplan { display: block; width: 100%; height: auto; }
+svg .zl { fill: #F3EDE8; font-size: 10px; font-weight: 600; font-family: var(--sans); }
+svg .zl.small { font-size: 8px; font-weight: 400; fill: #B9ADA4; }
+svg .pulse { animation: fpulse 1.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes fpulse { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(1.6); } }
+@media (prefers-reduced-motion: reduce) { svg .pulse { animation: none; } }
+.legend i.gate { background: #5FD6C8; border-radius: 2px; }
+.legend i.ws { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #C9D6E2; border-radius: 0; background: none; }
+.field .legend { margin-top: 8px; gap: 10px; font-size: 12px; }
+.fday { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 10px; font-size: 13px; color: var(--muted); }
+.fday input, .field input[type=range] { width: 100%; accent-color: var(--ember); }
+button.item.fz { width: 100%; text-align: left; border: none; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.fz .nm .dot, .kv .dot, .falert .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.falert { padding: 12px 16px; border-left: 3px solid var(--line); font-size: 13.5px; display: flex; flex-direction: column; gap: 3px; }
+.falert + .falert { border-top: 1px solid var(--line-soft); }
+.falert.amber { border-left-color: #F2B046; } .falert.red { border-left-color: #E5533D; background: rgba(229,83,61,.07); } .falert.info { border-left-color: #5FD6C8; }
+.linkbtn { background: none; border: none; padding: 0; color: var(--ember-text); cursor: pointer; font: inherit; text-decoration: underline; }

@@ -90,7 +90,8 @@
     chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
-    close: '<path d="M18 6 6 18M6 6l12 12"/>'
+    close: '<path d="M18 6 6 18M6 6l12 12"/>',
+    sensor: '<circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>'
   };
   function ic(name, color, sw) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="' + (sw || 1.8) +
@@ -106,7 +107,7 @@
       ic('info') + esc(label || 'How this was calculated') + '</button>';
   }
   function tabs(active) {
-    var items = [['today', '#/today', 'flame', 'Today'], ['map', '#/map', 'map', 'Map'], ['air', '#/air', 'wind', 'Air'], ['evidence', '#/evidence', 'shield', 'Evidence']];
+    var items = [['today', '#/today', 'flame', 'Today'], ['map', '#/map', 'map', 'Map'], ['air', '#/air', 'wind', 'Air'], ['field', '#/field', 'sensor', 'Field'], ['evidence', '#/evidence', 'shield', 'Evidence']];
     return '<nav class="tabs" aria-label="Main">' + items.map(function (it) {
       return '<a href="' + it[1] + '"' + (active === it[0] ? ' aria-current="page"' : '') + '>' + ic(it[2]) + it[3] + '</a>';
     }).join('') + '</nav>';
@@ -359,6 +360,7 @@
       '<section class="action' + (z.level === 'Low' ? ' calm' : '') + '"><h3>What to do</h3><p>' + esc(z.action) + '</p></section>' +
       '<div class="pair"><button class="btn ' + (on ? 'done' : 'quiet') + '" data-act="assign" data-v="' + z.id + '" aria-pressed="' + on + '">' + (on ? ic('check', null, 2) + 'Patrol assigned' : 'Assign a patrol') + '</button>' +
       '<a class="btn primary" href="#/warn/' + z.id + '">Warn this area</a></div>' +
+      (z.id === 'MY-S-02' ? '<a class="btn quiet" href="#/field">' + ic('sensor') + 'See the field sensors (Kuala Langat pilot)</a>' : '') +
       zoneAir(z) + wtChart(z) + feedbackLink(z) +
       '</div></main>' + tabs('today');
   }
@@ -638,6 +640,7 @@
         'Replay a past day|#/replay|See what it would have flagged before real fires',
         'How PeatGuard works|#/method|The data, the model, how it was tested, and its limits',
         'What it could save|#/impact|Patrol days, forest and carbon, with the assumptions shown',
+        'Field sensors: Kuala Langat pilot|#/field|50 simulated sensor nodes, smart canal gates and a monthly report',
         'Ground sensors|#/sensors|What changes when sensors sit in the peat (demo)'].map(function (s) {
         var p = s.split('|');
         return '<a class="item plain" href="' + p[1] + '"><div><div class="nm">' + esc(p[0]) + '</div><div class="area">' + esc(p[2]) + '</div></div><span></span><span class="chev">' + ic('chev', null, 2) + '</span></a>';
@@ -848,7 +851,273 @@
   }
 
   /* ---------------- sheets: "how this was calculated" ---------------- */
+  /* ---------------- PeatGuard Field: Kuala Langat pilot (simulated IoT site) ----------------
+     A schematic of the proposed 960 ha pilot at Kuala Langat North Forest Reserve: 50 sensor nodes,
+     one weather station per zone, 12 smart canal gates. All readings are simulated from a simple
+     dry-spell model (about 1.3 cm/day water-table decline) until real sensors are installed. */
+  var F = { day: 0, auto: true, role: 'operator', smoulder: null, override: {}, danger: 40 };
+  var F_DAYS = 30, F_RAIN_DAY = 16, F_RAIN_DROP = 12, F_CLOSED_RATE = 0.35;
+  var F_ZONES = [
+    { id: 'A', name: 'Zone A', x: 20, y: 20, w: 100, h: 110, wt0: 26, r: 1.2, n: 9 },
+    { id: 'B', name: 'Zone B', x: 120, y: 20, w: 100, h: 110, wt0: 30, r: 1.3, n: 8 },
+    { id: 'C', name: 'Zone C', x: 220, y: 20, w: 100, h: 110, wt0: 22, r: 1.1, n: 9 },
+    { id: 'D', name: 'Zone D', x: 20, y: 130, w: 100, h: 110, wt0: 33, r: 1.4, n: 8 },
+    { id: 'E', name: 'Zone E', x: 120, y: 130, w: 100, h: 110, wt0: 28, r: 1.25, n: 8 },
+    { id: 'F', name: 'Zone F', x: 220, y: 130, w: 100, h: 110, wt0: 24, r: 1.0, n: 8 }
+  ];
+  var F_GATES = { A: [[120, 72], [64, 130]], B: [[170, 130], [220, 84]], C: [[272, 130], [300, 34]],
+    D: [[120, 192], [46, 226]], E: [[220, 190], [168, 238]], F: [[274, 238], [314, 176]] };
+  var F_OUTLINE = '30,30 90,14 170,22 250,12 318,34 326,110 318,190 300,244 210,250 130,244 60,250 20,200 14,120';
+
+  function fRand(seed) { var x = Math.sin(seed * 9301 + 49297) * 233280; return x - Math.floor(x); }
+  function fGPS(x, y) { return (2.8750 - y * 0.00012).toFixed(5) + ', ' + (101.5450 + x * 0.00012).toFixed(5); }
+  function fDate(d) { var t = new Date(); t.setDate(t.getDate() + d); return t.toLocaleDateString('en-GB', tz({ day: 'numeric', month: 'short' })); }
+
+  // Water table (cm below surface) for one zone, day by day, plus automatic gate events.
+  // Each morning the rules engine decides: close the zone's gates when it is forecast to cross the
+  // danger line within 5 days; open them the day before forecast heavy rain to prevent flooding.
+  function fSeries(z, auto) {
+    var ov = F.override[z.id], wt = [z.wt0], ev = [], closed = ov === 'closed';
+    for (var d = 0; d < F_DAYS; d++) {
+      if (!ov && auto) {
+        var daysTo = (F.danger - wt[d]) / z.r;
+        if (closed && d === F_RAIN_DAY - 1) { closed = false; ev.push({ d: d, t: 'open', msg: 'Gates opened ahead of forecast heavy rain, to prevent flooding' }); }
+        else if (!closed && daysTo <= 5 && d !== F_RAIN_DAY - 1) { closed = true; ev.push({ d: d, t: 'close', msg: 'Gates closed automatically: forecast to cross ' + F.danger + ' cm in ' + Math.max(0, Math.round(daysTo)) + ' days' }); }
+      }
+      if (d === F_DAYS - 1) break;
+      var v = d + 1 === F_RAIN_DAY ? wt[d] - F_RAIN_DROP : wt[d] + (closed ? F_CLOSED_RATE : z.r);
+      wt.push(Math.max(5, Math.round(v * 10) / 10));
+    }
+    return { wt: wt, ev: ev };
+  }
+  function fGatesClosed(z, s, day) {
+    var ov = F.override[z.id];
+    if (ov) return ov === 'closed';
+    var st = false;
+    s.ev.forEach(function (e) { if (e.d <= day) st = e.t === 'close'; });
+    return st;
+  }
+  function fNodes(z) {
+    var out = [], cols = 3, rows = Math.ceil(z.n / cols);
+    for (var i = 0; i < z.n; i++) {
+      var c = i % cols, r = Math.floor(i / cols), seed = z.id.charCodeAt(0) * 100 + i;
+      out.push({ id: z.id + '-' + (i + 1), zone: z.id,
+        x: z.x + 18 + c * ((z.w - 36) / (cols - 1)) + (fRand(seed) - 0.5) * 14,
+        y: z.y + 22 + r * ((z.h - 40) / Math.max(1, rows - 1)) + (fRand(seed + 7) - 0.5) * 12,
+        off: Math.round((fRand(seed + 3) - 0.5) * 60) / 10 });
+    }
+    return out;
+  }
+  function fState() {
+    var day = F.day;
+    return F_ZONES.map(function (z) {
+      var s = fSeries(z, F.auto), base = fSeries(z, false);
+      var wt = s.wt[day], closed = fGatesClosed(z, s, day);
+      var rate = closed ? F_CLOSED_RATE : z.r;
+      var daysTo = wt >= F.danger ? 0 : (F.danger - wt) / rate;
+      var nodes = fNodes(z).map(function (n) {
+        var w = Math.round((wt + n.off) * 10) / 10, sm = F.smoulder === n.id;
+        return Object.assign(n, { wt: w, t10: sm ? 49.2 : 27.4 + (n.off > 0 ? 0.4 : 0), t30: sm ? 58.1 : 26.6, co: sm ? 36.4 : 0.4 + Math.abs(n.off) / 20,
+          batt: 88 + Math.round(fRand(n.x) * 10), smoulder: sm, buffering: n.id === 'C-7',
+          status: sm || w > F.danger ? 'red' : (F.danger - w) / rate <= 5 ? 'amber' : 'green' });
+      });
+      var status = nodes.some(function (n) { return n.smoulder; }) || wt > F.danger ? 'red' : daysTo <= 5 ? 'amber' : 'green';
+      return { z: z, s: s, base: base, wt: wt, closed: closed, rate: rate, daysTo: daysTo, nodes: nodes, status: status };
+    });
+  }
+  function fAlerts(st) {
+    var out = [];
+    st.forEach(function (q) {
+      q.s.ev.forEach(function (e) { if (e.d <= F.day) out.push({ d: e.d, h: 6, sev: e.t === 'close' ? 'amber' : 'info', zone: q.z.id, msg: q.z.name + ': ' + e.msg }); });
+      if (!F.auto || F.override[q.z.id] === 'open') {
+        for (var d = 0; d <= F.day; d++) if (q.s.wt[d] > F.danger && (d === 0 || q.s.wt[d - 1] <= F.danger)) {
+          out.push({ d: d, h: 6, sev: 'red', zone: q.z.id, msg: q.z.name + ': water table ' + q.s.wt[d].toFixed(1) + ' cm, past the ' + F.danger + ' cm danger line. Peat can now catch fire.' });
+        }
+      }
+      q.nodes.forEach(function (n) {
+        if (n.smoulder) out.push({ d: F.day, h: 14, sev: 'red', zone: q.z.id, node: n.id, gps: fGPS(n.x, n.y),
+          msg: 'Possible underground fire at node ' + n.id + ': peat at 30 cm is ' + n.t30 + ' °C, CO ' + n.co + ' ppm. Alert raised at the node in 1 min 12 s.' });
+      });
+    });
+    return out.sort(function (a, b) { return (b.d * 24 + b.h) - (a.d * 24 + a.h); });
+  }
+  var F_COL = { green: '#5BBF7A', amber: '#F2B046', red: '#E5533D' };
+  var F_WORD = { green: 'Safe', amber: 'Watch', red: 'Danger' };
+
+  function fPlan(st) {
+    var g = '<svg class="siteplan" viewBox="0 0 340 262" role="img" aria-label="Schematic site plan of the Kuala Langat pilot: 6 zones, 50 sensor nodes, 12 canal gates">' +
+      '<defs><clipPath id="fclip"><polygon points="' + F_OUTLINE + '"/></clipPath></defs>' +
+      '<polygon points="' + F_OUTLINE + '" fill="#1E2A1F" stroke="#3E5A40" stroke-width="1.5"/>' +
+      '<g clip-path="url(#fclip)">';
+    st.forEach(function (q) {
+      g += '<rect x="' + q.z.x + '" y="' + q.z.y + '" width="' + q.z.w + '" height="' + q.z.h + '" fill="' + F_COL[q.status] + '" fill-opacity="0.16" data-act="fzone" data-v="' + q.z.id + '" style="cursor:pointer"/>';
+    });
+    g += '<path d="M120 10V252M220 10V252M10 130H330M20 238H320" stroke="#4FA3C7" stroke-width="2.4" stroke-opacity=".75" fill="none"/></g>';
+    st.forEach(function (q) {
+      g += '<text x="' + (q.z.x + 8) + '" y="' + (q.z.y + 16) + '" class="zl">' + q.z.id + ' · ' + Math.round(q.wt) + ' cm</text>';
+      g += '<path d="M' + (q.z.x + q.z.w - 18) + ' ' + (q.z.y + 8) + 'l5 9h-10z" fill="#C9D6E2" opacity=".85"><title>Weather station, ' + q.z.name + '</title></path>';
+      q.nodes.forEach(function (n) {
+        g += (n.smoulder ? '<circle cx="' + n.x.toFixed(1) + '" cy="' + n.y.toFixed(1) + '" r="9" fill="none" stroke="#E5533D" stroke-width="2" class="pulse"/>' : '') +
+          '<circle cx="' + n.x.toFixed(1) + '" cy="' + n.y.toFixed(1) + '" r="4.2" fill="' + F_COL[n.status] + '" stroke="#0F0B09" stroke-width="1.2"' +
+          (n.buffering ? ' stroke-dasharray="2 1.5"' : '') + ' data-act="fnode" data-v="' + n.id + '" style="cursor:pointer"><title>' + n.id + ': ' + n.wt + ' cm</title></circle>';
+      });
+      (F_GATES[q.z.id] || []).forEach(function (p, i) {
+        g += '<rect x="' + (p[0] - 5) + '" y="' + (p[1] - 5) + '" width="10" height="10" rx="2" fill="' + (q.closed ? '#5FD6C8' : '#17120F') + '" stroke="#5FD6C8" stroke-width="1.8" data-act="fzone" data-v="' + q.z.id + '" style="cursor:pointer"><title>Gate ' + q.z.id + (i + 1) + ': ' + (q.closed ? 'closed, holding water' : 'open') + '</title></rect>';
+      });
+    });
+    return g + '</svg>';
+  }
+  function fChart(q) {
+    var W = 320, H = 110, top = 6, maxV = 60, n = F_DAYS;
+    function x(i) { return (i / (n - 1) * W).toFixed(1); }
+    function y(v) { return (top + Math.min(v, maxV) / maxV * (H - 20)).toFixed(1); }
+    function line(arr) { return arr.map(function (v, i) { return x(i) + ',' + y(v); }).join(' '); }
+    var dy = y(F.danger);
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Water table over 30 days, with and without smart gates">' +
+      '<rect x="0" y="' + dy + '" width="' + W + '" height="' + (H - 14 - dy) + '" fill="#E5533D" opacity=".1"/>' +
+      '<line x1="0" y1="' + dy + '" x2="' + W + '" y2="' + dy + '" stroke="#E5533D" stroke-dasharray="4 4"/>' +
+      '<polyline points="' + line(q.base.wt) + '" fill="none" stroke="#8A7F77" stroke-width="2" stroke-dasharray="5 4"/>' +
+      '<polyline points="' + line(q.s.wt) + '" fill="none" stroke="#5FD6C8" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<line x1="' + x(F.day) + '" y1="0" x2="' + x(F.day) + '" y2="' + (H - 14) + '" stroke="#F3EDE8" stroke-opacity=".5"/>' +
+      '<text x="' + (Number(x(F_RAIN_DAY)) + 3) + '" y="12" class="zl small">rain</text>' +
+      '<text x="' + (W - 2) + '" y="12" class="zl small" text-anchor="end">wetter ↑ · drier ↓</text>' +
+      '<text x="2" y="' + (H - 2) + '" class="zl small">day 0</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" class="zl small" text-anchor="end">day 29</text></svg>' +
+      '<div class="legend"><span><i style="background:#5FD6C8"></i>With smart gates</span><span><i style="background:#8A7F77"></i>Fixed canal blocks</span><span><i style="background:#E5533D"></i>' + F.danger + ' cm danger line</span></div>';
+  }
+  function fDaysText(q) {
+    if (q.wt > F.danger) return 'Past the ' + F.danger + ' cm line';
+    if (q.daysTo > 30) return 'Safe for 30+ days';
+    return 'Crosses ' + F.danger + ' cm in ' + Math.max(1, Math.round(q.daysTo)) + ' day' + (Math.round(q.daysTo) === 1 ? '' : 's');
+  }
+
+  function vField() {
+    var st = fState(), al = fAlerts(st), wz = zoneById('MY-S-02');
+    var cnt = { green: 0, amber: 0, red: 0 };
+    st.forEach(function (q) { cnt[q.status]++; });
+    var viewer = F.role === 'viewer';
+    var roles = [['admin', 'Admin'], ['operator', 'Operator'], ['viewer', 'Viewer']];
+    return '<main class="screen has-nav field">' +
+      topbar(null, 'Field: Kuala Langat pilot', 'KLNFR, 960 ha · simulated sensors') +
+      (wz ? '<a class="watchlink" href="#/zone/' + wz.id + '"><b>PeatGuard Watch today</b><span>' + esc(wz.id) + ', ' + esc(area(wz)) + ': ' + wz.level + ', ' + pct(wz.p) + ' chance of fire, #' + wz.rank + ' of 71.</span><span class="dim">Watch flags the area from satellites. Field measures it in the ground.</span></a>' : '') +
+      '<div class="seg" role="group" aria-label="Signed in as">' + roles.map(function (r) {
+        return '<button aria-pressed="' + (F.role === r[0]) + '" data-act="frole" data-v="' + r[0] + '">' + r[1] + '</button>';
+      }).join('') + '</div>' +
+      '<div class="fstats"><div><b style="color:' + F_COL.green + '">' + cnt.green + '</b><span>safe zones</span></div><div><b style="color:' + F_COL.amber + '">' + cnt.amber + '</b><span>watch</span></div><div><b style="color:' + F_COL.red + '">' + cnt.red + '</b><span>danger</span></div><div><b>49/50</b><span>nodes online</span></div></div>' +
+      '<section class="panel">' + fPlan(st) +
+      '<div class="legend"><span><i style="background:' + F_COL.green + '"></i>Safe</span><span><i style="background:' + F_COL.amber + '"></i>Watch (≤5 days)</span><span><i style="background:' + F_COL.red + '"></i>Danger</span><span><i class="gate"></i>Gate (filled = closed)</span><span><i class="ws"></i>Weather station</span></div>' +
+      (viewer ? '' :
+        '<label class="field fday"><span>Dry spell: <b>day ' + F.day + '</b> (' + esc(fDate(F.day)) + ')' + (F.day >= F_RAIN_DAY && F.day < F_RAIN_DAY + 3 ? ' · heavy rain' : '') + '</span><input id="fday" type="range" min="0" max="' + (F_DAYS - 1) + '" value="' + F.day + '"></label>' +
+        '<div class="seg" role="group" aria-label="Canal control"><button aria-pressed="' + F.auto + '" data-act="fauto" data-v="1">Smart gates (auto)</button><button aria-pressed="' + !F.auto + '" data-act="fauto" data-v="0">Fixed canal blocks</button></div>') +
+      '</section>' +
+      '<section class="stack"><div class="group-head"><h2>Zones</h2><span class="tiny dim">Water table, forecast, gates</span></div><div class="group">' +
+      st.map(function (q) {
+        return '<button class="item plain fz" data-act="fzone" data-v="' + q.z.id + '"><div><div class="nm"><span class="dot" style="background:' + F_COL[q.status] + '"></span>' + q.z.name + ' · ' + q.z.n + ' nodes</div>' +
+          '<div class="area">' + fDaysText(q) + ' · gates ' + (q.closed ? 'closed' : 'open') + (F.override[q.z.id] ? ' (manual)' : '') + '</div></div>' +
+          '<div class="pc" style="color:' + F_COL[q.status] + '">' + Math.round(q.wt) + '<small>cm deep</small></div><span class="chev">' + ic('chev', null, 2) + '</span></button>';
+      }).join('') + '</div></section>' +
+      '<section class="stack"><div class="group-head"><h2>Alerts</h2><span class="tiny dim">SMS + app, with GPS</span></div>' +
+      (al.length ? '<div class="group">' + al.slice(0, 6).map(function (a) {
+        return '<div class="falert ' + a.sev + '"><div class="tiny dim">Day ' + a.d + ', ' + (a.h < 10 ? '0' : '') + a.h + ':' + (a.node ? '07' : '15') + ' · ' + esc(fDate(a.d)) + '</div><div>' + esc(a.msg) + '</div>' +
+          (a.gps ? '<div class="tiny">GPS ' + a.gps + ' (simulated)</div><div class="pair" style="margin-top:8px"><a class="btn primary" href="sms:?&body=' + encodeURIComponent('PeatGuard ALERT: ' + a.msg + ' GPS ' + a.gps + '. Send a crew with water injection now.') + '">Send SMS to Bomba</a><button class="btn line" data-act="fnode" data-v="' + a.node + '">Open node</button></div>' : '') + '</div>';
+      }).join('') + '</div>' : '<div class="group empty">No alerts yet. Move the dry-spell slider to see what happens.</div>') +
+      '</section>' +
+      (viewer ? '' : '<div class="pair"><button class="btn primary" data-act="fsmoulder">' + (F.smoulder ? 'Clear smoulder' : 'Simulate a smoulder') + '</button><button class="btn quiet" data-act="sheet" data-v="freport">Monthly report</button></div>') +
+      (viewer ? '<button class="btn primary" data-act="sheet" data-v="freport">Open the monthly compliance report</button><p class="fine">Viewers (buyers, funders, auditors) see reports only.</p>' : '') +
+      (F.role === 'admin' ? '<section class="panel stack"><h3>Thresholds (admin)</h3><label class="field"><span>Water-table danger line: <b>' + F.danger + ' cm</b></span><input id="fdanger" type="range" min="30" max="50" step="5" value="' + F.danger + '"></label><p class="tiny dim">Peat temperature alert: +10 °C in 1 hour or above 40 °C. CO alert: above 10 ppm.</p></section>' : '') +
+      '<div class="kv"><div><span>Readings today</span><b>4,800 (50 nodes × 96)</b></div><div><span>Data today</span><b>about 240 KB</b></div><div><span>Network</span><b>LoRaWAN → solar gateway → 4G</b></div></div>' +
+      '<p class="fine">Pilot simulation. Readings are generated from a simple dry-spell model (water table falling about 1.3 cm a day) until sensors are installed. Site plan and GPS positions are schematic.</p>' +
+      '</main>' + tabs('field');
+  }
+  function fSheet(kind, arg) {
+    var st = fState();
+    if (kind === 'fzone') {
+      var q = st.filter(function (x) { return x.z.id === arg; })[0];
+      if (!q) return null;
+      var ov = F.override[q.z.id] || 'auto', canGate = F.role !== 'viewer';
+      var rain7 = F.day >= F_RAIN_DAY && F.day < F_RAIN_DAY + 7 ? 32 : 0;
+      return [q.z.name + ': ' + F_WORD[q.status],
+        '<div class="kv"><div><span>Water table now</span><b>' + q.wt + ' cm below surface</b></div><div><span>Forecast</span><b>' + fDaysText(q) + '</b></div>' +
+        '<div><span>Canal gates</span><b>' + q.z.id + '1, ' + q.z.id + '2: ' + (q.closed ? 'closed, holding water' : 'open') + '</b></div>' +
+        '<div><span>Weather station</span><b>Rain 7 days ' + rain7 + ' mm · max ' + (rain7 ? 30 : 34) + ' °C · humidity ' + (rain7 ? 78 : 56) + '%</b></div></div>' +
+        fChart(q) +
+        (canGate ? '<h3 style="margin-top:14px">Gate control</h3><div class="seg" role="group" aria-label="Gate control">' + [['auto', 'Auto'], ['closed', 'Hold closed'], ['open', 'Hold open']].map(function (o) {
+          return '<button aria-pressed="' + (ov === o[0]) + '" data-act="fgate" data-v="' + q.z.id + ':' + o[0] + '">' + o[1] + '</button>';
+        }).join('') + '</div><p class="tiny dim">Manual override is logged and shown to everyone. People make the final call in emergencies.</p>' : '') +
+        '<h3 style="margin-top:14px">Nodes</h3><div class="kv">' + q.nodes.map(function (n) {
+          return '<div><span><span class="dot" style="background:' + F_COL[n.status] + '"></span><button class="linkbtn" data-act="fnode" data-v="' + n.id + '">' + n.id + '</button></span><b>' + n.wt + ' cm · ' + n.t30 + ' °C</b></div>';
+        }).join('') + '</div>'];
+    }
+    if (kind === 'fnode') {
+      var node = null, zq = null;
+      st.forEach(function (x) { x.nodes.forEach(function (n) { if (n.id === arg) { node = n; zq = x; } }); });
+      if (!node) return null;
+      return ['Node ' + node.id + (node.smoulder ? ': possible underground fire' : ''),
+        '<div class="kv"><div><span>Water table</span><b>' + node.wt + ' cm</b></div><div><span>Peat temperature, 10 cm</span><b>' + node.t10 + ' °C</b></div>' +
+        '<div><span>Peat temperature, 30 cm</span><b>' + node.t30 + ' °C</b></div><div><span>Carbon monoxide</span><b>' + node.co.toFixed(1) + ' ppm</b></div>' +
+        '<div><span>Battery (solar)</span><b>' + node.batt + '%</b></div><div><span>Last reading</span><b>' + (node.buffering ? '45 min ago · 3 readings stored, will forward' : '4 min ago · every 15 min') + '</b></div>' +
+        '<div><span>GPS (simulated)</span><b>' + fGPS(node.x, node.y) + '</b></div><div><span>Edge rule</span><b>' + (node.smoulder ? 'ALERT raised at node · reporting every 1 min' : 'Normal · 15-min reporting') + '</b></div></div>' +
+        (node.smoulder ? '<div class="callout bad" style="margin-top:12px"><b>Smouldering likely</b>Temperature and CO both rose, so this is not just sun-heated ground. SMS sent to patrollers and Bomba with the location.</div>' : '') +
+        '<p class="tiny dim" style="margin-top:10px">Sensor node: piezometer, 2 temperature probes, CO sensor, ESP32 + LoRa, solar panel.</p>'];
+    }
+    if (kind === 'freport') {
+      var rows = st.map(function (q) {
+        var tot = 0, ok = 0;
+        q.nodes.forEach(function (n) { q.s.wt.forEach(function (w) { tot += 96; if (w + n.off <= F.danger) ok += 96; }); });
+        var gates = q.s.ev.length + (F.override[q.z.id] ? 1 : 0);
+        var alerts = fAlerts(st).filter(function (a) { return a.zone === q.z.id; }).length;
+        return { z: q.z, share: ok / tot, gates: gates, alerts: alerts, burned: 0 };
+      });
+      var total = rows.reduce(function (a, r) { return a + r.z.n; }, 0) * 96 * F_DAYS;
+      S.fReport = rows;
+      return ['Monthly compliance report',
+        '<p class="small muted">Kuala Langat pilot · simulated month (' + esc(fDate(0)) + ' to ' + esc(fDate(F_DAYS - 1)) + ') · ' + (F.auto ? 'smart gates' : 'fixed canal blocks') + '</p>' +
+        '<div class="kv">' + rows.map(function (r) {
+          return '<div><span>' + r.z.name + '</span><b style="color:' + (r.share >= 0.9 ? F_COL.green : F_COL.red) + '">' + Math.round(r.share * 100) + '% wet · ' + r.gates + ' gate action' + (r.gates === 1 ? '' : 's') + ' · ' + r.alerts + ' alert' + (r.alerts === 1 ? '' : 's') + '</b></div>';
+        }).join('') + '</div>' +
+        '<p class="small" style="margin-top:12px">' + (rows.every(function (r) { return r.share >= 0.9; }) ? '<b style="color:#7FD39A">Target met:</b> every zone kept its water table within ' + F.danger + ' cm for at least 90% of readings. Area burned: 0 ha.' : '<b style="color:#F07A66">Target missed:</b> some zones spent more than 10% of the month past ' + F.danger + ' cm.') + '</p>' +
+        '<p class="tiny dim">Generated from ' + total.toLocaleString('en-GB') + ' stored readings. Built from the database, so it cannot be edited by hand.</p>' +
+        '<button class="btn quiet" data-act="fcsv" style="margin-top:10px">Download as CSV</button>'];
+    }
+    return null;
+  }
+  function bindField() {
+    var el = document.getElementById('fday');
+    if (el) el.addEventListener('input', function () { F.day = Number(el.value); route(true); });
+    var dg = document.getElementById('fdanger');
+    if (dg) dg.addEventListener('change', function () { F.danger = Number(dg.value); route(true); });
+  }
+  function fAction(act, v) {
+    if (act === 'frole') { F.role = v; route(true); return true; }
+    if (act === 'fauto') { F.auto = v === '1'; route(true); return true; }
+    if (act === 'fzone') { openSheet('fzone', v); return true; }
+    if (act === 'fnode') { openSheet('fnode', v); return true; }
+    if (act === 'fsmoulder') {
+      F.smoulder = F.smoulder ? null : 'D-5'; route(true);
+      if (F.smoulder) toast('Smoulder at node D-5: alert sent'); return true;
+    }
+    if (act === 'fgate') {
+      var p = v.split(':');
+      if (p[1] === 'auto') delete F.override[p[0]]; else F.override[p[0]] = p[1];
+      route(true); openSheet('fzone', p[0]); toast('Gate ' + (p[1] === 'auto' ? 'back on auto' : 'override: ' + p[1]) + ', logged'); return true;
+    }
+    if (act === 'fcsv') {
+      var rows = S.fReport || [];
+      var csv = 'zone,nodes,share_of_readings_within_' + F.danger + 'cm,gate_actions,alerts,area_burned_ha\n' +
+        rows.map(function (r) { return [r.z.name, r.z.n, (r.share * 100).toFixed(1) + '%', r.gates, r.alerts, r.burned].join(','); }).join('\n');
+      try {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+        a.download = 'peatguard-compliance-report.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        toast('Report downloaded');
+      } catch (e) { toast('Could not download the report'); }
+      return true;
+    }
+    return false;
+  }
+
   function sheetHtml(kind, arg) {
+    if (kind === 'fzone' || kind === 'fnode' || kind === 'freport') return fSheet(kind, arg);
     var t = S.today, M = S.metrics, f = M && M.futureYears;
     var fresh = '<div class="kv"><div><span>Calculated</span><b>' + esc(fmtDate(t.generatedAt, { day: 'numeric', month: 'short' })) + ', ' + esc(fmtTime(t.generatedAt)) + '</b></div>' +
       '<div><span>Weather</span><b>' + (t.sources.weather === 'live' ? 'Live forecast' : 'Stored data') + '</b></div>' +
@@ -904,6 +1173,8 @@
   }
   function closeSheet() { sheetRoot.innerHTML = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
   sheetRoot.addEventListener('click', function (e) {
+    var fa = e.target.closest('.sheet [data-act]');
+    if (fa && fa.getAttribute('data-act') !== 'close-sheet' && fAction(fa.getAttribute('data-act'), fa.getAttribute('data-v'))) return;
     if (e.target.classList.contains('scrim') || e.target.closest('.sheet [data-act="close-sheet"]')) closeSheet();
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && sheetRoot.innerHTML) closeSheet(); });
@@ -929,6 +1200,7 @@
       case 'replay': html = vReplay(); ensureReplay(); break;
       case 'method': html = vMethod(); break;
       case 'sensors': html = vSensors(); break;
+      case 'field': html = vField(); break;
       default: html = vMissing();
     }
     var y = window.scrollY;
@@ -936,6 +1208,7 @@
     if (keepScroll) window.scrollTo(0, y);
     if (page === 'map') initMap();
     if (page === 'impact') bindImpact();
+    if (page === 'field') bindField();
     var el;
     if ((el = document.getElementById('rday'))) { var rd = el; rd.addEventListener('change', function () { if (rd.value) { S.replayDay = rd.value; route(true); } }); }
     if ((el = document.getElementById('szone'))) { var sz = el; sz.addEventListener('change', function () { S.sensorZone = sz.value; S.smoulder = false; route(true); }); }
@@ -957,6 +1230,7 @@
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var act = el.getAttribute('data-act'), v = el.getAttribute('data-v');
+    if (fAction(act, v)) return;
     if (act === 'sheet') { openSheet(v, el.getAttribute('data-arg')); return; }
     if (act === 'filter') { S.filter = v; route(true); return; }
     if (act === 'hero') { S.heroOpen = !S.heroOpen; route(true); return; }

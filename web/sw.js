@@ -1,7 +1,7 @@
 /* PeatGuard background script: makes the app installable and lets it open
    with the last downloaded data when there is no signal.
    Change VERSION to force every phone to drop its old copy. */
-var VERSION = 'pg-v3';
+var VERSION = 'pg-v4';
 var SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'leaflet-heat.js', 'land.json', 'manifest.json',
   'icons/icon-192.png', 'icons/apple-touch-icon.png',
   'data/today.json', 'data/metrics.json', 'data/air.json', 'data/replay.json', 'data/impact.json',
